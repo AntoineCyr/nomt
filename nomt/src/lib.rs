@@ -388,6 +388,53 @@ impl<T: HashAlgorithm> Nomt<T> {
         Ok(())
     }
 
+    /// Export all live values in strict key order against an authenticated root
+    /// and count supplied by the caller. Every value receives an inclusion check;
+    /// uniqueness and the exact authenticated count establish completeness.
+    /// The proof session excludes mutations for the entire visit. The callback
+    /// must not attempt to mutate this database.
+    pub fn export_sorted(
+        &self,
+        expected_root: [u8; 32],
+        expected_count: u64,
+        mut visit: impl FnMut(KeyPath, &[u8]) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        let session = self.begin_session(SessionParams::default());
+        anyhow::ensure!(
+            session.prev_root().into_inner() == expected_root,
+            "export root mismatch"
+        );
+        let mut previous = None;
+        let mut count = 0u64;
+        self.store.visit_values(|key, value| {
+            anyhow::ensure!(
+                previous.is_none_or(|previous| previous < key),
+                "export keys are not strictly ordered"
+            );
+            anyhow::ensure!(count < expected_count, "export contains extra entries");
+            let proof = session.prove(key)?;
+            let path = proof
+                .verify::<T>(key.view_bits::<Msb0>(), expected_root)
+                .map_err(|e| anyhow::anyhow!("invalid export proof: {e:?}"))?;
+            anyhow::ensure!(
+                path.confirm_value(&LeafData {
+                    key_path: key,
+                    value_hash: T::hash_value(&value)
+                })
+                .map_err(|e| anyhow::anyhow!("export value outside proof: {e:?}"))?,
+                "export value commitment mismatch"
+            );
+            visit(key, &value)?;
+            previous = Some(key);
+            count = count
+                .checked_add(1)
+                .ok_or_else(|| anyhow::anyhow!("export count overflow"))?;
+            Ok(())
+        })?;
+        anyhow::ensure!(count == expected_count, "export is missing entries");
+        Ok(())
+    }
+
     /// Return Nomt's metrics.
     /// To collect them, they need to be activated at [`Nomt`] creation
     #[doc(hidden)]

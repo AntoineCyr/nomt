@@ -248,6 +248,48 @@ impl Store {
         self.shared.values.read_transaction()
     }
 
+    /// Visit the complete current value index in key order without collecting it.
+    pub(crate) fn visit_values(
+        &self,
+        mut visit: impl FnMut(KeyPath, Vec<u8>) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        use crate::beatree::iterator::IterOutput;
+        let transaction = self.read_transaction();
+        let mut iterator = transaction.iterator([0; 32], None);
+        let io_handle = self.io_pool().make_handle();
+        loop {
+            let key = match iterator.next() {
+                None => break,
+                Some(IterOutput::Item(key, _)) | Some(IterOutput::OverflowItem(key, _, _)) => key,
+                Some(IterOutput::Blocked) => {
+                    let page_number = iterator
+                        .needed_leaves()
+                        .next()
+                        .ok_or_else(|| anyhow::anyhow!("blocked export has no leaf"))?;
+                    let leaf = match transaction.load_leaf_async(page_number, &io_handle, 0) {
+                        Ok(leaf) => leaf,
+                        Err(load) => {
+                            let completion = io_handle.recv()?;
+                            completion.result?;
+                            anyhow::ensure!(
+                                completion.command.user_data == 0,
+                                "unexpected export I/O completion"
+                            );
+                            load.finish(completion.command.kind.unwrap_buf())
+                        }
+                    };
+                    iterator.provide_leaf(leaf);
+                    continue;
+                }
+            };
+            let value = self
+                .load_value(key)?
+                .ok_or_else(|| anyhow::anyhow!("exported index entry has no value"))?;
+            visit(key, value)?;
+        }
+        Ok(())
+    }
+
     /// Creates a new [`PageLoader`].
     pub fn page_loader(&self) -> PageLoader {
         let page_loader = bitbox::PageLoader::new(&self.shared.pages);

@@ -196,7 +196,8 @@ impl From<[u8; 32]> for Root {
 
 /// Quiescent capacity and allocation counters. Pool mappings include unused
 /// pages and are not RSS. Branch pages are the actual resident index payload;
-/// ordered-map allocator overhead and temporary COW copies are additional.
+/// map nodes and branch headers are included. Allocator rounding, fragmentation
+/// and temporary COW roots are additional; this is not a process RSS estimate.
 #[derive(Clone, Debug)]
 pub struct StorageUsage {
     pub leaf_next_page: u32,
@@ -205,6 +206,8 @@ pub struct StorageUsage {
     pub occupied_buckets: u64,
     pub resident_branch_count: u64,
     pub resident_branch_page_bytes: u64,
+    pub resident_map_node_bytes: u64,
+    pub resident_branch_header_bytes: u64,
     pub resident_bucket_metadata_bytes: u64,
     pub pool_mapped_bytes: u64,
     pub undo_first_record: u64,

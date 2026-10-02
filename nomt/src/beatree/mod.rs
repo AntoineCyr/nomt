@@ -82,6 +82,10 @@ impl Shared {
 impl Tree {
     pub(crate) fn resident_branch_count(&self) -> usize { self.shared.read().bbn_index.len() }
 
+    pub(crate) fn resident_index_allocations(&self) -> (usize, usize) {
+        self.shared.read().bbn_index.resident_allocation_bytes()
+    }
+
     pub fn open(
         page_pool: PagePool,
         io_pool: &IoPool,

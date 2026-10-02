@@ -17,6 +17,13 @@ pub struct Index {
 impl Index {
     pub fn len(&self) -> usize { self.first_key_map.len() }
 
+    pub fn resident_allocation_bytes(&self) -> (usize, usize) {
+        let branch = std::alloc::Layout::new::<[usize; 2]>().extend(
+            std::alloc::Layout::new::<BranchNode>(),
+        ).expect("branch allocation layout").0.pad_to_align().size();
+        (self.first_key_map.node_allocation_bytes(), self.len() * branch)
+    }
+
     /// Look up the branch that would store the given key.
     ///
     /// This is either a branch whose separator is exactly equal to this key or the branch with the

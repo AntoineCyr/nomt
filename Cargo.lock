@@ -854,8 +854,7 @@ checksum = "3d3067d79b975e8844ca9eb072e16b31c3c1c36928edf9c6789548c524d0d954"
 [[package]]
 name = "imbl"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc3be8d8cd36f33a46b1849f31f837c44d9fa87223baee3b4bd96b8f11df81eb"
+source = "git+https://github.com/AntoineCyr/imbl?rev=1ae53453b70fd06f5c15b67c409bb3d5c93f785f#1ae53453b70fd06f5c15b67c409bb3d5c93f785f"
 dependencies = [
  "bitmaps",
  "imbl-sized-chunks",

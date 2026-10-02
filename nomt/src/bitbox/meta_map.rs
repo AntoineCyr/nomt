@@ -30,6 +30,8 @@ impl MetaMap {
             .count()
     }
 
+    pub fn allocated_bytes(&self) -> usize { self.bitvec.capacity() }
+
     pub fn len(&self) -> usize {
         self.buckets
     }

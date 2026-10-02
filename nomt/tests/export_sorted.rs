@@ -30,6 +30,14 @@ fn complete_export_checks_root_count_order_and_overflow_values() {
         .unwrap()
         .commit(&database)
         .unwrap();
+    let usage = database.storage_usage().unwrap();
+    assert_eq!(usage.bucket_capacity, 1024);
+    assert!(usage.resident_bucket_metadata_bytes >= 1024);
+    assert!(usage.resident_branch_count > 0);
+    assert_eq!(usage.resident_branch_page_bytes, usage.resident_branch_count * 4096);
+    assert!(usage.pool_mapped_bytes >= usage.resident_branch_page_bytes);
+    assert!(usage.leaf_next_page > 1);
+    assert!(usage.branch_next_page > 1);
     let root = database.root().into_inner();
     drop(database);
     let database = Nomt::<Sha2Hasher>::open(options()).unwrap();
@@ -61,4 +69,16 @@ fn complete_export_checks_root_count_order_and_overflow_values() {
         })
         .unwrap();
     assert_eq!(exported, vec![values[0].clone(), values[2].clone()]);
+    let root = database.root().into_inner();
+    drop(database);
+    let mut growth = options();
+    growth.hashtable_buckets(2048);
+    nomt::grow_hashtable(&growth).unwrap();
+    nomt::validate_hashtable(&growth).unwrap();
+    let database = Nomt::<Sha2Hasher>::open(options()).unwrap();
+    assert_eq!(database.storage_usage().unwrap().bucket_capacity, 2048);
+    assert_eq!(database.root().into_inner(), root);
+    let mut grown = Vec::new();
+    database.export_sorted(root, 2, |key, value| { grown.push((key, value.to_vec())); Ok(()) }).unwrap();
+    assert_eq!(grown, exported);
 }

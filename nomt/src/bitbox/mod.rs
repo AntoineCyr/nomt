@@ -164,6 +164,8 @@ impl DB {
         })
     }
 
+    pub(crate) fn resident_metadata_bytes(&self) -> usize { self.shared.meta_map.read().allocated_bytes() }
+
     /// Return space utilization counts.
     pub fn utilization(&self) -> HashTableUtilization {
         HashTableUtilization {

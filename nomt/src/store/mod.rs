@@ -301,6 +301,22 @@ impl Store {
         &self.shared.io_pool
     }
 
+    pub(crate) fn storage_usage(&self, pool: &PagePool) -> anyhow::Result<crate::StorageUsage> {
+        let meta = Meta::read(pool, &self.shared.meta_fd)?;
+        meta.validate()?;
+        let utilization = self.shared.pages.utilization();
+        let branches = self.shared.values.resident_branch_count();
+        Ok(crate::StorageUsage {
+            leaf_next_page: meta.ln_bump, branch_next_page: meta.bbn_bump,
+            bucket_capacity: utilization.capacity as u64, occupied_buckets: utilization.occupied as u64,
+            resident_branch_count: branches as u64,
+            resident_branch_page_bytes: branches as u64 * 4096,
+            resident_bucket_metadata_bytes: self.shared.pages.resident_metadata_bytes() as u64,
+            pool_mapped_bytes: pool.mapped_bytes() as u64,
+            undo_first_record: meta.rollback_start_live, undo_last_record: meta.rollback_end_live,
+        })
+    }
+
     /// Get the current hash-table bucket counts.
     pub fn hash_table_utilization(&self) -> HashTableUtilization {
         self.shared.pages.utilization()

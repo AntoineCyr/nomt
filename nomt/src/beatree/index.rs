@@ -15,6 +15,8 @@ pub struct Index {
 }
 
 impl Index {
+    pub fn len(&self) -> usize { self.first_key_map.len() }
+
     /// Look up the branch that would store the given key.
     ///
     /// This is either a branch whose separator is exactly equal to this key or the branch with the

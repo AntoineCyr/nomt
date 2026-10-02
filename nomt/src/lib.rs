@@ -194,6 +194,23 @@ impl From<[u8; 32]> for Root {
     }
 }
 
+/// Quiescent capacity and allocation counters. Pool mappings include unused
+/// pages and are not RSS. Branch pages are the actual resident index payload;
+/// ordered-map allocator overhead and temporary COW copies are additional.
+#[derive(Clone, Debug)]
+pub struct StorageUsage {
+    pub leaf_next_page: u32,
+    pub branch_next_page: u32,
+    pub bucket_capacity: u64,
+    pub occupied_buckets: u64,
+    pub resident_branch_count: u64,
+    pub resident_branch_page_bytes: u64,
+    pub resident_bucket_metadata_bytes: u64,
+    pub pool_mapped_bytes: u64,
+    pub undo_first_record: u64,
+    pub undo_last_record: u64,
+}
+
 /// An instance of the Nearly-Optimal Merkle Trie Database.
 pub struct Nomt<T> {
     merkle_update_pool: UpdatePool,
@@ -433,6 +450,14 @@ impl<T: HashAlgorithm> Nomt<T> {
         })?;
         anyhow::ensure!(count == expected_count, "export is missing entries");
         Ok(())
+    }
+
+    /// Capture actual persistent allocation counters at a matched boundary.
+    /// Excludes transient COW indexes and allocator bookkeeping; mapped virtual
+    /// bytes are separately exposed rather than presented as resident RSS.
+    pub fn storage_usage(&self) -> anyhow::Result<StorageUsage> {
+        let _access = self.access_lock.read();
+        self.store.storage_usage(&self.page_pool)
     }
 
     /// Return Nomt's metrics.

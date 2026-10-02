@@ -151,6 +151,11 @@ impl PagePool {
         }
     }
 
+    /// Virtual mappings retained by this pool, including currently free pages.
+    pub(crate) fn mapped_bytes(&self) -> usize {
+        self.inner.n_regions.load(Ordering::Acquire) as usize * REGION_BYTE_SIZE
+    }
+
     /// Allocates a new [`FatPage`].
     pub fn alloc_fat_page(&self) -> FatPage {
         let page = self.alloc();
